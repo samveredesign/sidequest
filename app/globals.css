@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/**
+ * The UI is light-theme only; `dark:` utilities are kept for a future opt-in.
+ * Use class-based dark (default is prefers-color-scheme) so system dark mode on
+ * phones does not turn inputs/text into dark:zinc-900 while the page stays on
+ * the parchment look — that mismatch looked "inverted" on Android/Chrome.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #fbf8f2;
   --foreground: #1e1e1e;
@@ -14,6 +22,11 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+}
+
+/* Native controls follow light styling on mobile (avoids black input wells in OS dark mode). */
+html {
+  color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -60,7 +73,14 @@ h1 {
 /* Form controls: keep Geist like before */
 input,
 select,
-textarea,
+textarea {
+  font-family: var(--font-form);
+  font-weight: 400;
+  /* Explicit fill so WebKit/Chrome on Android never use forced-dark native styling */
+  color: #1a1a1a;
+  background-color: #ffffff;
+}
+
 option {
   font-family: var(--font-form);
   font-weight: 400;
