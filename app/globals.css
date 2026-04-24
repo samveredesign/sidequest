@@ -1,8 +1,12 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fbf8f2;
+  --foreground: #1e1e1e;
+  /* Geist (Next font) for form fields; kit name is ff-providence-sans-web-pro */
+  --font-form: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-body: "ff-providence-sans-web-pro", sans-serif;
+  --font-display: "schmaltzy", sans-serif;
 }
 
 @theme inline {
@@ -14,13 +18,142 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #fbf8f2;
+    --foreground: #1e1e1e;
   }
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
+  background-image: url("/media/background.jpg");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* Enforce uppercase on Providence text even if utility classes set normal-case */
+body :not(h1, input, select, textarea, option) {
+  text-transform: uppercase;
+}
+
+/* Providence: keep bold even when components use font-medium / font-semibold / font-normal */
+body :where(.font-medium, .font-semibold) {
+  font-weight: 700;
+}
+
+body
+  :where(.font-normal):not(h1) {
+  font-weight: 700;
+}
+
+/* Page titles only (not labels): Schmaltzy Book */
+h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  text-transform: none;
+}
+
+/* Form controls: keep Geist like before */
+input,
+select,
+textarea,
+option {
+  font-family: var(--font-form);
+  font-weight: 400;
+}
+
+select {
+  appearance: none;
+  background-image: url("/media/dropdown_arrow.svg");
+  background-position: right 0.75rem center;
+  background-repeat: no-repeat;
+  background-size: 12px auto;
+  padding-right: 2.5rem;
+}
+
+input::placeholder,
+textarea::placeholder {
+  font-family: var(--font-form);
+}
+
+button,
+input[type="button"],
+input[type="submit"],
+input[type="reset"] {
+  font-size: inherit;
+}
+
+@keyframes hoverBob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.floating-heading {
+  animation: hoverBob 4.8s ease-in-out infinite;
+}
+
+.menu-cta-button {
+  transition:
+    transform 180ms ease,
+    filter 180ms ease;
+}
+
+.menu-cta-button:hover {
+  transform: translateY(-2px) scale(1.015);
+  filter: brightness(1.04);
+}
+
+/* Geist sentence-case helper for instructional copy */
+.instruction-copy {
+  font-family: var(--font-form);
+  font-weight: 400;
+  text-transform: none;
+}
+
+/* Quest title (Providence) + body (Geist) — opt out of global uppercase */
+.quest-line {
+  text-transform: none;
+}
+
+.quest-intro {
+  font-family: var(--font-body);
+  font-weight: 700;
+}
+
+/* Rough border treatment */
+:where(.rounded, .rounded-md, .rounded-lg) {
+  border-radius: 6px !important;
+}
+
+/* Neutral bordered surfaces: 1px, lighter grey, divider texture on each side */
+:where(
+    input,
+    select,
+    textarea,
+    .border-zinc-100,
+    .border-zinc-200,
+    .border-zinc-300,
+    .border-zinc-600,
+    .border-zinc-700,
+    .border-zinc-800
+  ) {
+  border-width: 1px !important;
+  border-style: solid;
+  border-color: #8b8b8b !important;
+}
+
+/* Completed/failed states: keep existing colors, add rougher edge feel */
+:where(.border-green-600, .border-green-800, .border-red-500, .border-red-800) {
+  border-width: 1px !important;
+  border-style: dashed;
+  border-radius: 6px !important;
 }

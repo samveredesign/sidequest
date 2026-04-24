@@ -1,0 +1,23 @@
+/** Two-player cooperative prompts for Secret Alliance mode only. */
+export const SECRET_ALLIANCE_QUEST_POOL = [
+  "Together, high-five whenever one of you completes any small task in the room.",
+  "Find one object each that matches the other’s shirt color and show them at the same time.",
+  "Both tell a two-sentence story where your sentences alternate word by word.",
+  "Sync up: both drink something at the same moment without counting down aloud.",
+  "Trade seats or spots for two minutes, then swap back together.",
+  "Both compliment a third person, but your compliments must rhyme with each other.",
+  "Build a tiny tower from found items — each of you adds one piece in turn.",
+  "Mirror each other’s posture for thirty seconds without laughing (too hard).",
+  "One starts a hum, the other matches pitch within five seconds.",
+  "Together describe a fictional hero using only one word each, back and forth, ten words total.",
+  "Both touch the floor and the ceiling (or highest reachable point) in any order, ending together.",
+  "Share one true embarrassing fact each; the other must nod solemnly.",
+  "Draw half a creature each on the same paper without peeking until both halves are done.",
+  "Both learn the same three-word chant and perform it once in unison.",
+  "Find a song you both vaguely know and sing four bars together.",
+  "One closes eyes; the other guides them to a snack without speaking.",
+  "Both balance on one foot until one of you wobbles — then the other declares victory kindly.",
+  "Trade shoes or socks for one lap around the room, then restore order.",
+  "Invent a secret handshake in under sixty seconds and demonstrate it twice.",
+  "Both list three things you’re grateful for; at least one item must overlap.",
+] as const;

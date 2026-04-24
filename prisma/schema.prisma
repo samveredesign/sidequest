@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum GameMode {
+  FIRST_FINISH_WINS
+  LAST_FINISH_LOSES
+  SECRET_ALLIANCE
+}
+
+enum GameStatus {
+  LOBBY
+  ACTIVE
+  FINISHED
+}
+
+enum PlayerStatus {
+  ACTIVE
+  FINISHED
+  LEFT
+}
+
+enum PlayerQuestStatus {
+  ACTIVE
+  COMPLETED
+  FAILED
+}
+
+enum JoinRequestStatus {
+  PENDING
+  ACCEPTED
+  DENIED
+}
+
+model Game {
+  id               String     @id @default(cuid())
+  codeWord1        String
+  codeWord2        String
+  /** Round length after the game starts (supports 30s test mode). */
+  durationSeconds  Int
+  numberOfQuests   Int
+  mode             GameMode
+  status           GameStatus @default(LOBBY)
+  /** Secret Alliance: show partner names on the quest screen when true. */
+  partnersKnown    Boolean @default(false)
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  createdAt        DateTime   @default(now())
+
+  players       Player[]
+  joinRequests  JoinRequest[]
+}
+
+model JoinRequest {
+  id         String            @id @default(cuid())
+  gameId     String
+  playerName String
+  status     JoinRequestStatus @default(PENDING)
+  createdAt  DateTime          @default(now())
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([gameId])
+}
+
+model Player {
+  id         String       @id @default(cuid())
+  gameId     String
+  name       String
+  isHost     Boolean      @default(false)
+  status     PlayerStatus @default(ACTIVE)
+  score      Int          @default(0)
+  finishedAt DateTime?
+  leftAt     DateTime?
+  /** Secret Alliance: players with the same group are allies (pairs; one trio if odd). */
+  allianceGroup Int?
+  createdAt  DateTime     @default(now())
+
+  game         Game          @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  playerQuests PlayerQuest[]
+
+  @@index([gameId])
+}
+
+model Quest {
+  id           String        @id @default(cuid())
+  text         String
+  allianceOnly Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  assignments  PlayerQuest[]
+}
+
+model PlayerQuest {
+  id          String             @id @default(cuid())
+  playerId    String
+  questId     String
+  status      PlayerQuestStatus  @default(ACTIVE)
+  /** Secret Alliance: matching slot index across allies is the same shared quest. */
+  slotIndex   Int?
+  completedAt DateTime?
+  failedAt    DateTime?
+  createdAt   DateTime           @default(now())
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  quest  Quest  @relation(fields: [questId], references: [id], onDelete: Cascade)
+
+  @@index([playerId])
+  @@index([questId])
+}

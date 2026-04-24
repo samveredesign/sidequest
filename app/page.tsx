@@ -1,65 +1,64 @@
-import Image from "next/image";
+import Link from "next/link";
+import { SessionRestore } from "@/components/SessionRestore";
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div className="relative flex min-h-full flex-1 flex-col">
+      <img
+        src="/media/home_background.jpg"
+        alt=""
+        className="pointer-events-none absolute inset-0 z-0 mx-auto h-full w-full object-cover object-center select-none"
+        aria-hidden
+      />
+      <SessionRestore />
+      <div className="relative z-10 flex min-h-full flex-1 flex-col items-center justify-center px-4 py-16">
+        <div className="flex w-full max-w-md flex-col items-center gap-8 text-center">
+          <div>
+            <h1 className="m-0">
+              <img
+                src="/media/side-quest_heading_textured.png"
+                alt="Side Quest"
+                className="floating-heading mx-auto block h-auto w-full max-w-md"
+              />
+            </h1>
+            <p className="mt-3 text-2xl text-[#1e1e1e]">
+              Secret Missions for Legends, Fo0ls and Peasants
+            </p>
+          </div>
+          <div
+            className="flex w-full max-w-[620px] items-center justify-center bg-contain bg-center bg-no-repeat px-[11%] py-[10%] aspect-[1010/651]"
+            style={{
+              backgroundImage: "url(/media/menu_background.png)",
+            }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            <div className="flex w-full max-w-[440px] flex-col gap-[3.5%]">
+              <Link
+                href="/start"
+                className="menu-cta-button -translate-y-[5px] flex w-full aspect-[763/150] items-center justify-center gap-[1.5%] pt-[2%] bg-[url('/media/Button_Border.svg')] bg-[length:100%_100%] bg-center bg-no-repeat text-[clamp(1rem,4.2vw,1.5rem)] text-[#46aa62] whitespace-nowrap"
+              >
+                <img src="/media/start_s.svg" alt="" aria-hidden className="w-[16%] max-w-[72px] min-w-[34px] h-auto -mt-[1.5%]" />
+                <span>tart New Game</span>
+              </Link>
+              <p className="text-center text-[clamp(1rem,4.2vw,1.5rem)] text-[#1e1e1e]">
+                OR
+              </p>
+              <Link
+                href="/join"
+                className="menu-cta-button flex w-full aspect-[763/150] items-center justify-center pt-[2%] bg-[url('/media/Button_Border_join.svg')] bg-[length:100%_100%] bg-center bg-no-repeat text-[clamp(1rem,4.2vw,1.5rem)] text-[#c47c45] whitespace-nowrap"
+              >
+                Join a Game
+              </Link>
+            </div>
+          </div>
+          <Link
+            href="/how-to-play"
+            className="inline-block bg-bottom bg-no-repeat pb-3 text-xl tracking-wide text-[#1e1e1e]"
+            style={{ backgroundImage: "url(/media/Underline.svg)", backgroundSize: "100% auto" }}
           >
-            Documentation
-          </a>
+            HOW TO PLAY
+          </Link>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
