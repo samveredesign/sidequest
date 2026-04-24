@@ -1,35 +1,13 @@
+import { ensureQuestCatalogSeeded } from "../lib/ensure-quest-catalog";
 import { prisma } from "../lib/prisma";
-import { QUEST_POOL } from "../data/quest-pool";
-import { SECRET_ALLIANCE_QUEST_POOL } from "../data/secret-alliance-quest-pool";
 
 async function main() {
-  // Quest text lives in the DB; `data/quest-pool.ts` is only used here (and in dev reset).
+  await ensureQuestCatalogSeeded();
   const mainCount = await prisma.quest.count({ where: { allianceOnly: false } });
-  if (mainCount === 0) {
-    await prisma.quest.createMany({
-      data: QUEST_POOL.map((text) => ({ text })),
-    });
-    console.log(`Seeded ${QUEST_POOL.length} main quests.`);
-  } else {
-    console.log(`Main quest pool already has ${mainCount} rows; skipping.`);
-  }
-
-  await seedAllianceQuests();
-}
-
-async function seedAllianceQuests() {
-  const n = await prisma.quest.count({ where: { allianceOnly: true } });
-  if (n > 0) {
-    console.log(`Alliance quest pool already has ${n} rows; skipping.`);
-    return;
-  }
-  await prisma.quest.createMany({
-    data: [...SECRET_ALLIANCE_QUEST_POOL].map((text) => ({
-      text,
-      allianceOnly: true,
-    })),
-  });
-  console.log(`Seeded ${SECRET_ALLIANCE_QUEST_POOL.length} Secret Alliance quests.`);
+  const allianceCount = await prisma.quest.count({ where: { allianceOnly: true } });
+  console.log(
+    `Quest catalog ready: ${mainCount} main quest(s), ${allianceCount} Secret Alliance quest(s).`,
+  );
 }
 
 main()

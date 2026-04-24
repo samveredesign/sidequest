@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
+import { ensureQuestCatalogSeeded } from "@/lib/ensure-quest-catalog";
 
 /** Odd total → one trio, rest pairs; even → all pairs. */
 export function allianceSizesForPlayerCount(total: number): number[] {
@@ -17,6 +18,7 @@ export async function assignSecretAllianceInTx(
   gameId: string,
   numberOfQuests: number,
 ): Promise<void> {
+  await ensureQuestCatalogSeeded();
   const players = await tx.player.findMany({
     where: { gameId, status: "ACTIVE", leftAt: null },
     orderBy: { createdAt: "asc" },

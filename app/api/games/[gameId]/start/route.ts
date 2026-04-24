@@ -1,3 +1,4 @@
+import { ensureQuestCatalogSeeded } from "@/lib/ensure-quest-catalog";
 import { assignInitialQuestsToPlayers } from "@/lib/quest-utils";
 import { prisma } from "@/lib/prisma";
 import { assignSecretAllianceInTx } from "@/lib/secret-alliance";
@@ -48,6 +49,8 @@ export async function POST(req: Request, ctx: Ctx) {
     );
   }
 
+  await ensureQuestCatalogSeeded();
+
   if (game.mode === "SECRET_ALLIANCE") {
     const allianceQuestCount = await prisma.quest.count({
       where: { allianceOnly: true },
@@ -55,7 +58,7 @@ export async function POST(req: Request, ctx: Ctx) {
     if (allianceQuestCount < game.numberOfQuests) {
       return NextResponse.json(
         {
-          error: `Need at least ${game.numberOfQuests} Secret Alliance quests — run npm run db:seed`,
+          error: `Not enough Secret Alliance quest lines in the database for this game size.`,
         },
         { status: 500 },
       );
@@ -66,7 +69,7 @@ export async function POST(req: Request, ctx: Ctx) {
     });
     if (questCount === 0) {
       return NextResponse.json(
-        { error: "Quest pool empty — run npm run db:seed" },
+        { error: "Quest pool could not be loaded. Try again in a moment." },
         { status: 500 },
       );
     }

@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { ensureQuestCatalogSeeded } from "@/lib/ensure-quest-catalog";
 import { prisma } from "@/lib/prisma";
 
 type TxOrPrisma = Prisma.TransactionClient | typeof prisma;
@@ -34,6 +35,7 @@ export async function pickRandomQuestIdsForPlayer(
   count: number,
   options?: PickRandomQuestsOptions,
 ): Promise<string[]> {
+  await ensureQuestCatalogSeeded();
   const { gameId, gameWideExclusion, extraExclude = new Set<string>(), tx } = options ?? {};
   const applyGameWide = Boolean(gameId) && (gameWideExclusion ?? true);
   const db: TxOrPrisma = tx ?? prisma;
