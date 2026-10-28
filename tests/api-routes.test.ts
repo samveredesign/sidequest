@@ -53,12 +53,14 @@ async function create(opts: {
   name: string;
   quests: number;
   mode?: "FIRST_FINISH_WINS" | "LAST_FINISH_LOSES";
+  maxFails?: number;
 }): Promise<Created> {
   const res = await createGame(
     post("http://test/api/games", {
       playerName: opts.name,
       durationSeconds: 3600,
       numberOfQuests: opts.quests,
+      ...(opts.maxFails !== undefined ? { maxFailsPerPlayer: opts.maxFails } : {}),
       mode: opts.mode ?? "FIRST_FINISH_WINS",
     }),
   );
@@ -125,6 +127,77 @@ describe("api rules", () => {
     const { status, data } = await read(res);
     assert.equal(status, 400);
     assert.match(String(data.error), /1–10/);
+  });
+
+  it("stores a host-chosen fail limit and rejects values outside 0–10", async () => {
+    const omitted = await create({ name: "Default", quests: 1 });
+    const omittedState = await state(omitted.gameId, omitted.host.token);
+    assert.equal((omittedState.data.game as { maxFailsPerPlayer: number }).maxFailsPerPlayer, 5);
+
+    for (const maxFails of [0, 10]) {
+      const game = await create({ name: `Limit${maxFails}`, quests: 1, maxFails });
+      const view = await state(game.gameId, game.host.token);
+      assert.equal((view.data.game as { maxFailsPerPlayer: number }).maxFailsPerPlayer, maxFails);
+      assert.equal((view.data.me as { failsRemaining: number }).failsRemaining, maxFails);
+    }
+
+    for (const maxFailsPerPlayer of [-1, 11, 1.5]) {
+      const res = await createGame(
+        post("http://test/api/games", {
+          playerName: "Bad",
+          durationSeconds: 3600,
+          numberOfQuests: 1,
+          maxFailsPerPlayer,
+          mode: "FIRST_FINISH_WINS",
+        }),
+      );
+      const { status, data } = await read(res);
+      assert.equal(status, 400, JSON.stringify(data));
+      assert.match(String(data.error), /0–10/);
+    }
+  });
+
+  it("disables failing when the host sets the limit to 0 and allows exactly 10", async () => {
+    const none = await create({ name: "None", quests: 1, maxFails: 0 });
+    assert.equal((await start(none)).status, 200);
+    const before = await state(none.gameId, none.host.token);
+    const questId = questsOf(before.data, "ACTIVE")[0]!.id;
+    const blocked = await read(
+      await failQuest(post("http://test/fail", {}, none.host.token), {
+        params: Promise.resolve({ playerQuestId: questId }),
+      }),
+    );
+    assert.equal(blocked.status, 400);
+    assert.match(String(blocked.data.error), /not allowed/);
+    const afterBlock = await state(none.gameId, none.host.token);
+    assert.equal((afterBlock.data.me as { score: number }).score, 0);
+    assert.equal(questsOf(afterBlock.data, "ACTIVE").length, 1);
+
+    const ten = await create({ name: "Ten", quests: 1, maxFails: 10 });
+    assert.equal((await start(ten)).status, 200);
+    const left: number[] = [];
+    for (let i = 0; i < 10; i++) {
+      const current = await state(ten.gameId, ten.host.token);
+      const active = questsOf(current.data, "ACTIVE")[0];
+      assert.ok(active);
+      const result = await read(
+        await failQuest(post("http://test/fail", {}, ten.host.token), {
+          params: Promise.resolve({ playerQuestId: active.id }),
+        }),
+      );
+      assert.equal(result.status, 200, JSON.stringify(result.data));
+      left.push(Number(result.data.failsLeft));
+    }
+    assert.deepEqual(left, [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]);
+    const done = await state(ten.gameId, ten.host.token);
+    const extra = await read(
+      await failQuest(post("http://test/fail", {}, ten.host.token), {
+        params: Promise.resolve({ playerQuestId: questsOf(done.data, "ACTIVE")[0]!.id }),
+      }),
+    );
+    assert.equal(extra.status, 400);
+    assert.match(String(extra.data.error), /all 10 fails/);
+    assert.equal((done.data.me as { failsRemaining: number }).failsRemaining, 0);
   });
 
   it("keeps one score and one assignment under concurrent complete, fail, and start", async () => {

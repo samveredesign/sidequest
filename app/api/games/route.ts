@@ -1,7 +1,12 @@
 import { deleteGamesOlderThanSevenDays } from "@/lib/cleanup";
 import { generateGameCodeWords } from "@/lib/game-code";
 import { isAllowedDurationSeconds } from "@/lib/duration-options";
-import { MAX_STARTING_QUESTS, MIN_STARTING_QUESTS } from "@/lib/game-rules";
+import {
+  DEFAULT_FAILS_PER_PLAYER,
+  isAllowedFailLimit,
+  MAX_STARTING_QUESTS,
+  MIN_STARTING_QUESTS,
+} from "@/lib/game-rules";
 import { generatePlayerToken } from "@/lib/player-token";
 import { prisma } from "@/lib/prisma";
 import { GameMode } from "@prisma/client";
@@ -13,6 +18,7 @@ type Body = {
   playerName?: string;
   durationSeconds?: number;
   numberOfQuests?: number;
+  maxFailsPerPlayer?: number;
   mode?: GameMode;
   /** Secret Alliance: show partner names on the quest screen. */
   partnersKnown?: boolean;
@@ -29,6 +35,7 @@ export async function POST(req: Request) {
   const name = body.playerName?.trim();
   const durationSec = body.durationSeconds;
   const nQuests = body.numberOfQuests;
+  const maxFails = body.maxFailsPerPlayer ?? DEFAULT_FAILS_PER_PLAYER;
   const mode = body.mode;
 
   if (!name || name.length < 1) {
@@ -44,7 +51,13 @@ export async function POST(req: Request) {
     nQuests > MAX_STARTING_QUESTS
   ) {
     return NextResponse.json(
-      { error: `Number of quests must be ${MIN_STARTING_QUESTS}–${MAX_STARTING_QUESTS}` },
+      { error: `Number of quests per person must be ${MIN_STARTING_QUESTS}–${MAX_STARTING_QUESTS}` },
+      { status: 400 },
+    );
+  }
+  if (!isAllowedFailLimit(maxFails)) {
+    return NextResponse.json(
+      { error: "Maximum failed quests per player must be 0–10" },
       { status: 400 },
     );
   }
@@ -73,6 +86,7 @@ export async function POST(req: Request) {
         codeWord2: word2,
         durationSeconds: durationSec,
         numberOfQuests: nQuests,
+        maxFailsPerPlayer: maxFails,
         mode,
         partnersKnown: false,
         status: "LOBBY",

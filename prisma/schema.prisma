@@ -43,6 +43,8 @@ model Game {
   /** Round length after the game starts (supports 30s test mode). */
   durationSeconds  Int
   numberOfQuests   Int
+  /** Host-chosen cap on failed quests for each player. 0 disables Fail. */
+  maxFailsPerPlayer Int     @default(5)
   mode             GameMode
   status           GameStatus @default(LOBBY)
   /** Secret Alliance: show partner names on the quest screen when true. */

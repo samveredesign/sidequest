@@ -6,7 +6,7 @@ import { GameHeader } from "@/components/GameHeader";
 import { HostJoinRequestModal } from "@/components/HostJoinRequestModal";
 import { QuestText } from "@/components/QuestText";
 import type { GameStateJson } from "@/lib/game-state-types";
-import { formatFailsLeft } from "@/lib/game-rules";
+import { failUnavailableMessage, formatFailsLeft } from "@/lib/game-rules";
 import { clearPlayBootstrap, peekPlayBootstrap } from "@/lib/play-bootstrap";
 import { useGamePoll } from "@/hooks/useGamePoll";
 import { authHeaders, readSession } from "@/lib/storage";
@@ -174,6 +174,7 @@ export default function PlayPage() {
   }
 
   const quests = state.myQuests ?? [];
+  const maxFails = state.game.maxFailsPerPlayer;
   const failsRemaining = state.me?.failsRemaining ?? 0;
   const outOfFails = state.game.mode !== "SECRET_ALLIANCE" && failsRemaining <= 0;
   const actionsLocked = busy !== null;
@@ -308,7 +309,11 @@ export default function PlayPage() {
           <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-50">{state.me?.score ?? 0}</p>
           {state.game.mode !== "SECRET_ALLIANCE" ? (
             <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-              {failsRemaining === 0 ? "No fails left" : formatFailsLeft(failsRemaining)}
+              {maxFails <= 0
+                ? "Fails not allowed"
+                : failsRemaining === 0
+                  ? "No fails left"
+                  : formatFailsLeft(failsRemaining)}
             </p>
           ) : null}
         </div>
@@ -322,7 +327,7 @@ export default function PlayPage() {
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Quests</h2>
         {outOfFails ? (
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Fail is unavailable — you have used all 5 fails this game.
+            {failUnavailableMessage(maxFails)}
           </p>
         ) : null}
         {quests.length === 0 ? (

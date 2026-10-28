@@ -1,7 +1,7 @@
 import { ApiError } from "@/lib/api-error";
 import { lockGame, lockPlayer } from "@/lib/db-lock";
 import { expireGameIfTimeUp } from "@/lib/game-expiry";
-import { MAX_FAILS_PER_PLAYER, QUESTS_GRANTED_ON_FAIL } from "@/lib/game-rules";
+import { QUESTS_GRANTED_ON_FAIL } from "@/lib/game-rules";
 import { errorResponse } from "@/lib/http";
 import { requirePlayer } from "@/lib/player-auth";
 import { prisma } from "@/lib/prisma";
@@ -47,18 +47,21 @@ export async function POST(req: Request, ctx: Ctx) {
         }
         if (pq.player.status !== "ACTIVE") throw new ApiError("Player not active", 400);
 
+        const failLimit = game.maxFailsPerPlayer;
         const priorFails = await tx.playerQuest.count({
           where: { playerId: actor.id, status: "FAILED" },
         });
         if (pq.status !== "ACTIVE") {
           return {
             alreadyFailed: true,
-            failsLeft: Math.max(0, MAX_FAILS_PER_PLAYER - priorFails),
+            failsLeft: Math.max(0, failLimit - priorFails),
           };
         }
-        if (priorFails >= MAX_FAILS_PER_PLAYER) {
+        if (priorFails >= failLimit) {
           throw new ApiError(
-            `You've used all ${MAX_FAILS_PER_PLAYER} fails for this game.`,
+            failLimit <= 0
+              ? "Failing quests is not allowed in this game."
+              : `You've used all ${failLimit} fails for this game.`,
             400,
           );
         }
@@ -70,7 +73,7 @@ export async function POST(req: Request, ctx: Ctx) {
         if (updated.count !== 1) {
           return {
             alreadyFailed: true,
-            failsLeft: Math.max(0, MAX_FAILS_PER_PLAYER - priorFails),
+            failsLeft: Math.max(0, failLimit - priorFails),
           };
         }
 
@@ -91,7 +94,7 @@ export async function POST(req: Request, ctx: Ctx) {
           })),
         });
 
-        const failsLeft = MAX_FAILS_PER_PLAYER - (priorFails + 1);
+        const failsLeft = failLimit - (priorFails + 1);
         return { alreadyFailed: false, failsLeft };
       },
       { timeout: 20_000 },

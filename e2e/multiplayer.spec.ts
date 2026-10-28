@@ -261,12 +261,28 @@ test("fail limit counts down to zero and then disables Fail", async ({ browser, 
   await page.context().close();
 });
 
+test("start screen sets quests per person and a custom fail limit", async ({ page }) => {
+  await page.goto("/start");
+  await expect(page.getByText("Number of quests per person", { exact: true })).toBeVisible();
+  await expect(page.getByLabel(/Maximum failed quests per player/)).toHaveValue("5");
+  await page.getByLabel("Player name").fill("TwoFails");
+  await page.getByLabel(/Number of quests per person/).fill("1");
+  await page.getByLabel(/Maximum failed quests per player/).fill("2");
+  await page.getByRole("button", { name: "Create game" }).click();
+  await page.getByRole("button", { name: "Start Game" }).click();
+  await expect(page.getByText("2 fails left")).toBeVisible();
+  await page.getByRole("button", { name: "Fail", exact: true }).click();
+  await page.getByRole("button", { name: "Fail Quest" }).click();
+  await expect(page.getByRole("status")).toContainText("1 fail left");
+  await page.screenshot({ path: `${ARTIFACTS}/custom_fail_limit.png`, fullPage: true });
+});
+
 test("starting quests cannot exceed 10, and a failed action is shown", async ({ browser, request, page }) => {
   await page.goto("/start");
   await page.getByLabel("Player name").fill("Cap");
-  await page.getByLabel("Number of quests").fill("11");
+  await page.getByLabel(/Number of quests per person/).fill("11");
   await page.getByRole("button", { name: "Create game" }).click();
-  await expect(page.getByText("Number of quests must be 1–10.")).toBeVisible();
+  await expect(page.getByText("Number of quests per person must be 1–10.")).toBeVisible();
   await page.screenshot({ path: `${ARTIFACTS}/quest_cap_ten.png`, fullPage: true });
 
   const host = await createGame(request, { name: "Host", quests: 1, mode: "FIRST_FINISH_WINS" });

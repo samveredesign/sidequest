@@ -3,7 +3,14 @@
 import { FullscreenLoadingOverlay } from "@/components/FullscreenLoadingOverlay";
 import { InGameRedirect } from "@/components/InGameRedirect";
 import { DURATION_CHOICE_SECONDS, DURATION_LABELS } from "@/lib/duration-options";
-import { MAX_STARTING_QUESTS, MIN_STARTING_QUESTS } from "@/lib/game-rules";
+import {
+  DEFAULT_FAILS_PER_PLAYER,
+  isAllowedFailLimit,
+  MAX_FAILS_PER_PLAYER,
+  MAX_STARTING_QUESTS,
+  MIN_FAILS_PER_PLAYER,
+  MIN_STARTING_QUESTS,
+} from "@/lib/game-rules";
 import { markLobbyBootstrap } from "@/lib/lobby-bootstrap";
 import { saveSession } from "@/lib/storage";
 import Link from "next/link";
@@ -17,6 +24,7 @@ export default function StartGamePage() {
   const [name, setName] = useState("");
   const [durationSeconds, setDurationSeconds] = useState<number>(1800);
   const [numQuests, setNumQuests] = useState(3);
+  const [maxFails, setMaxFails] = useState(DEFAULT_FAILS_PER_PLAYER);
   const [mode, setMode] = useState<ModeOpt>("FIRST_FINISH_WINS");
   const [partnersKnown, setPartnersKnown] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +38,11 @@ export default function StartGamePage() {
       numQuests < MIN_STARTING_QUESTS ||
       numQuests > MAX_STARTING_QUESTS
     ) {
-      setError(`Number of quests must be ${MIN_STARTING_QUESTS}–${MAX_STARTING_QUESTS}.`);
+      setError(`Number of quests per person must be ${MIN_STARTING_QUESTS}–${MAX_STARTING_QUESTS}.`);
+      return;
+    }
+    if (!isAllowedFailLimit(maxFails)) {
+      setError(`Maximum failed quests per player must be ${MIN_FAILS_PER_PLAYER}–${MAX_FAILS_PER_PLAYER}.`);
       return;
     }
     setPending(true);
@@ -43,6 +55,7 @@ export default function StartGamePage() {
           playerName: name,
           durationSeconds,
           numberOfQuests: numQuests,
+          maxFailsPerPlayer: maxFails,
           mode,
           ...(mode === "SECRET_ALLIANCE" ? { partnersKnown } : {}),
         }),
@@ -117,7 +130,7 @@ export default function StartGamePage() {
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-zinc-700 dark:text-zinc-300">Number of quests</span>
+          <span className="font-medium text-zinc-700 dark:text-zinc-300">Number of quests per person</span>
           <input
             type="number"
             min={MIN_STARTING_QUESTS}
@@ -128,6 +141,21 @@ export default function StartGamePage() {
             className="rounded-md border border-zinc-300 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-900"
           />
           <span className="text-xs text-zinc-500">Maximum of {MAX_STARTING_QUESTS} starting quests per player.</span>
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-zinc-700 dark:text-zinc-300">Maximum failed quests per player</span>
+          <input
+            type="number"
+            min={MIN_FAILS_PER_PLAYER}
+            max={MAX_FAILS_PER_PLAYER}
+            required
+            value={maxFails}
+            onChange={(e) => setMaxFails(Number(e.target.value))}
+            className="rounded-md border border-zinc-300 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-900"
+          />
+          <span className="text-xs text-zinc-500">
+            Default {DEFAULT_FAILS_PER_PLAYER}. Choose 0 to turn Fail off.
+          </span>
         </label>
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium text-zinc-700 dark:text-zinc-300">Game mode</span>

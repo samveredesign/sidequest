@@ -7,6 +7,7 @@ export type GameStateJson = {
     mode: string;
     durationSeconds: number;
     numberOfQuests: number;
+    maxFailsPerPlayer: number;
     startedAt: string | null;
     finishedAt: string | null;
     createdAt: string;

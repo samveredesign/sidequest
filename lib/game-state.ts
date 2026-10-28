@@ -1,5 +1,4 @@
 import { expireGameIfTimeUp } from "@/lib/game-expiry";
-import { MAX_FAILS_PER_PLAYER } from "@/lib/game-rules";
 import {
   pickFirstFinisher,
   pickLeastProgressPlayer,
@@ -162,7 +161,7 @@ export async function buildGameState(gameId: string, playerId: string | null) {
         leftAt: p.leftAt?.toISOString() ?? null,
         completedQuests: completedByPlayer.get(p.id) ?? 0,
         failsUsed,
-        failsRemaining: Math.max(0, MAX_FAILS_PER_PLAYER - failsUsed),
+        failsRemaining: Math.max(0, game.maxFailsPerPlayer - failsUsed),
       };
 
       if (
@@ -334,6 +333,7 @@ export async function buildGameState(gameId: string, playerId: string | null) {
       mode: game.mode,
       durationSeconds: game.durationSeconds,
       numberOfQuests: game.numberOfQuests,
+      maxFailsPerPlayer: game.maxFailsPerPlayer,
       startedAt: game.startedAt?.toISOString() ?? null,
       finishedAt: game.finishedAt?.toISOString() ?? null,
       createdAt: game.createdAt.toISOString(),

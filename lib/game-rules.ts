@@ -2,8 +2,25 @@
 export const MIN_STARTING_QUESTS = 1;
 export const MAX_STARTING_QUESTS = 10;
 
-/** Successful fails allowed for one player in one game. */
-export const MAX_FAILS_PER_PLAYER = 5;
+/** Host-chosen cap on failed quests per player. 0 disables Fail. */
+export const MIN_FAILS_PER_PLAYER = 0;
+export const MAX_FAILS_PER_PLAYER = 10;
+export const DEFAULT_FAILS_PER_PLAYER = 5;
+
+export function isAllowedFailLimit(value: number): boolean {
+  return (
+    Number.isInteger(value) &&
+    value >= MIN_FAILS_PER_PLAYER &&
+    value <= MAX_FAILS_PER_PLAYER
+  );
+}
+
+export function failUnavailableMessage(maxFails: number): string {
+  if (maxFails <= 0) {
+    return "Fail is unavailable — this game does not allow failed quests.";
+  }
+  return `Fail is unavailable — you have used all ${maxFails} fails this game.`;
+}
 
 /** Replacement quests dealt when a player fails one quest. */
 export const QUESTS_GRANTED_ON_FAIL = 2;
