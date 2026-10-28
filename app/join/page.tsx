@@ -1,31 +1,14 @@
 "use client";
 
 import { InGameRedirect } from "@/components/InGameRedirect";
-import { saveSession } from "@/lib/storage";
+import { parsePastedGameCode, sanitizeCodeWord } from "@/lib/code-entry";
+import { joinTokenStorageKey, saveSession } from "@/lib/storage";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
 function normWord(s: string) {
   return s.trim().toLowerCase();
-}
-
-/** Host copy is `WORD1 WORD2` (see GameHeader); also accept 10 letters without a space. */
-function parsePastedGameCode(raw: string): { w1: string; w2: string } | null {
-  const lettersOnly = raw.toLowerCase().replace(/[^a-z]/g, "");
-  if (lettersOnly.length === 10) {
-    return { w1: lettersOnly.slice(0, 5), w2: lettersOnly.slice(5, 10) };
-  }
-  const parts = raw
-    .trim()
-    .toLowerCase()
-    .split(/\s+/)
-    .map((p) => p.replace(/[^a-z]/g, ""))
-    .filter((p) => p.length > 0);
-  if (parts.length >= 2 && parts[0]!.length === 5 && parts[1]!.length === 5) {
-    return { w1: parts[0]!, w2: parts[1]! };
-  }
-  return null;
 }
 
 export default function JoinGamePage() {
@@ -37,14 +20,25 @@ export default function JoinGamePage() {
   const [pending, setPending] = useState(false);
   const word2Ref = useRef<HTMLInputElement>(null);
 
-  function handleCodePaste(e: React.ClipboardEvent<HTMLInputElement>) {
-    const text = e.clipboardData.getData("text/plain");
-    const parsed = parsePastedGameCode(text);
-    if (!parsed) return;
-    e.preventDefault();
-    setWord1(parsed.w1);
-    setWord2(parsed.w2);
-    queueMicrotask(() => word2Ref.current?.focus());
+  function handleCodePaste(target: "w1" | "w2") {
+    return (e: React.ClipboardEvent<HTMLInputElement>) => {
+      const text = e.clipboardData.getData("text/plain");
+      const parsed = parsePastedGameCode(text);
+      if (!parsed) return;
+      e.preventDefault();
+      if (parsed.kind === "pair") {
+        setWord1(parsed.w1);
+        setWord2(parsed.w2);
+        queueMicrotask(() => word2Ref.current?.focus());
+        return;
+      }
+      if (target === "w1") {
+        setWord1(parsed.word);
+        if (parsed.word.length === 5) queueMicrotask(() => word2Ref.current?.focus());
+      } else {
+        setWord2(parsed.word);
+      }
+    };
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -72,21 +66,26 @@ export default function JoinGamePage() {
       const data = (await res.json()) as {
         error?: string;
         game?: { id: string };
-        player?: { id: string };
+        player?: { id: string; token?: string };
         joinRequestId?: string;
+        gameId?: string;
+        playerToken?: string;
       };
       if (!res.ok) {
         setError(data.error ?? "Could not join");
         return;
       }
-      if (data.joinRequestId && data.game?.id) {
+      if (data.joinRequestId && data.playerToken) {
+        sessionStorage.setItem(joinTokenStorageKey(data.joinRequestId), data.playerToken);
         router.push(`/join/pending?requestId=${encodeURIComponent(data.joinRequestId)}`);
         return;
       }
-      if (data.game && data.player) {
-        saveSession(data.game.id, data.player.id);
+      if (data.game && data.player?.id && data.player.token) {
+        saveSession(data.game.id, data.player.id, data.player.token);
         router.push(`/games/${data.game.id}/lobby`);
+        return;
       }
+      setError("Could not join — the server did not return a player session.");
     } catch {
       setError("Network error");
     } finally {
@@ -126,14 +125,14 @@ export default function JoinGamePage() {
               required
               value={word1}
               onChange={(e) => {
-                const v = e.target.value;
+                const v = sanitizeCodeWord(e.target.value);
                 setWord1(v);
                 if (v.length === 5) {
                   queueMicrotask(() => word2Ref.current?.focus());
                 }
               }}
-              onPaste={handleCodePaste}
-              maxLength={5}
+              onPaste={handleCodePaste("w1")}
+              maxLength={64}
               aria-label="First word of game code"
               className="w-full min-w-0 rounded-md border border-zinc-300 px-3 py-2 text-center font-mono tracking-widest sm:flex-1 dark:border-zinc-600 dark:bg-zinc-900"
               placeholder="Word 1"
@@ -145,9 +144,9 @@ export default function JoinGamePage() {
               ref={word2Ref}
               required
               value={word2}
-              onChange={(e) => setWord2(e.target.value)}
-              onPaste={handleCodePaste}
-              maxLength={5}
+              onChange={(e) => setWord2(sanitizeCodeWord(e.target.value))}
+              onPaste={handleCodePaste("w2")}
+              maxLength={64}
               aria-label="Second word of game code"
               className="w-full min-w-0 rounded-md border border-zinc-300 px-3 py-2 text-center font-mono tracking-widest sm:flex-1 dark:border-zinc-600 dark:bg-zinc-900"
               placeholder="Word 2"

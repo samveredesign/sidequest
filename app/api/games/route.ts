@@ -1,6 +1,8 @@
 import { deleteGamesOlderThanSevenDays } from "@/lib/cleanup";
 import { generateGameCodeWords } from "@/lib/game-code";
 import { isAllowedDurationSeconds } from "@/lib/duration-options";
+import { MAX_STARTING_QUESTS, MIN_STARTING_QUESTS } from "@/lib/game-rules";
+import { generatePlayerToken } from "@/lib/player-token";
 import { prisma } from "@/lib/prisma";
 import { GameMode } from "@prisma/client";
 import { NextResponse } from "next/server";
@@ -35,8 +37,16 @@ export async function POST(req: Request) {
   if (typeof durationSec !== "number" || !isAllowedDurationSeconds(durationSec)) {
     return NextResponse.json({ error: "Invalid game duration" }, { status: 400 });
   }
-  if (typeof nQuests !== "number" || nQuests < 1 || nQuests > 20) {
-    return NextResponse.json({ error: "Number of quests must be 1–20" }, { status: 400 });
+  if (
+    typeof nQuests !== "number" ||
+    !Number.isInteger(nQuests) ||
+    nQuests < MIN_STARTING_QUESTS ||
+    nQuests > MAX_STARTING_QUESTS
+  ) {
+    return NextResponse.json(
+      { error: `Number of quests must be ${MIN_STARTING_QUESTS}–${MAX_STARTING_QUESTS}` },
+      { status: 400 },
+    );
   }
   if (
     mode !== "FIRST_FINISH_WINS" &&
@@ -69,12 +79,14 @@ export async function POST(req: Request) {
       },
     });
 
+    const token = generatePlayerToken();
     const player = await prisma.player.create({
       data: {
         gameId: game.id,
         name,
         isHost: true,
         status: "ACTIVE",
+        secretToken: token,
       },
     });
 
@@ -86,7 +98,7 @@ export async function POST(req: Request) {
         status: game.status,
         mode: game.mode,
       },
-      player: { id: player.id, name: player.name, isHost: player.isHost },
+      player: { id: player.id, name: player.name, isHost: player.isHost, token },
     });
   } catch (e) {
     console.error("[POST /api/games]", e);

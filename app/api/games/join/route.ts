@@ -1,4 +1,8 @@
+import { lockGame } from "@/lib/db-lock";
+import { errorResponse } from "@/lib/http";
 import { isNameTakenInGame } from "@/lib/name-game";
+import { reapStalePlayers } from "@/lib/game-lifecycle";
+import { generatePlayerToken } from "@/lib/player-token";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
@@ -38,32 +42,64 @@ export async function POST(req: Request) {
   });
 
   if (lobbyGame) {
-    if (await isNameTakenInGame(lobbyGame.id, name)) {
-      return NextResponse.json(
-        { error: "That name is already taken in this game." },
-        { status: 409 },
-      );
+    await reapStalePlayers(lobbyGame.id);
+    try {
+      const player = await prisma.$transaction(async (tx) => {
+        await lockGame(tx, lobbyGame.id);
+        const fresh = await tx.game.findUnique({ where: { id: lobbyGame.id } });
+        if (!fresh || fresh.status !== "LOBBY") {
+          return null;
+        }
+        if (await isNameTakenInGame(fresh.id, name, { tx })) {
+          throw Object.assign(new Error("That name is already taken in this game."), { status: 409 });
+        }
+        const host = await tx.player.findFirst({
+          where: { gameId: fresh.id, isHost: true, status: { not: "LEFT" } },
+          select: { id: true },
+        });
+        return tx.player.create({
+          data: {
+            gameId: fresh.id,
+            name,
+            isHost: !host,
+            status: "ACTIVE",
+            secretToken: generatePlayerToken(),
+          },
+        });
+      });
+
+      if (!player) {
+        return NextResponse.json(
+          { error: "No game found for that code, or the game has already ended." },
+          { status: 404 },
+        );
+      }
+
+      return NextResponse.json({
+        game: {
+          id: lobbyGame.id,
+          codeWord1: lobbyGame.codeWord1,
+          codeWord2: lobbyGame.codeWord2,
+          status: "LOBBY" as const,
+          mode: lobbyGame.mode,
+        },
+        player: {
+          id: player.id,
+          name: player.name,
+          isHost: player.isHost,
+          token: player.secretToken,
+        },
+      });
+    } catch (error) {
+      const status = (error as { status?: number }).status;
+      if (status === 409) {
+        return NextResponse.json(
+          { error: "That name is already taken in this game." },
+          { status: 409 },
+        );
+      }
+      return errorResponse(error);
     }
-
-    const player = await prisma.player.create({
-      data: {
-        gameId: lobbyGame.id,
-        name,
-        isHost: false,
-        status: "ACTIVE",
-      },
-    });
-
-    return NextResponse.json({
-      game: {
-        id: lobbyGame.id,
-        codeWord1: lobbyGame.codeWord1,
-        codeWord2: lobbyGame.codeWord2,
-        status: lobbyGame.status,
-        mode: lobbyGame.mode,
-      },
-      player: { id: player.id, name: player.name, isHost: player.isHost },
-    });
   }
 
   const activeGame = await prisma.game.findFirst({
@@ -71,26 +107,53 @@ export async function POST(req: Request) {
   });
 
   if (activeGame) {
-    if (await isNameTakenInGame(activeGame.id, name)) {
-      return NextResponse.json(
-        { error: "That name is already taken in this game." },
-        { status: 409 },
-      );
-    }
+    await reapStalePlayers(activeGame.id);
+    try {
+      const joinRequest = await prisma.$transaction(async (tx) => {
+        await lockGame(tx, activeGame.id);
+        const fresh = await tx.game.findUnique({ where: { id: activeGame.id } });
+        if (!fresh || fresh.status !== "ACTIVE") return null;
+        const host = await tx.player.findFirst({
+          where: { gameId: fresh.id, isHost: true, status: { not: "LEFT" } },
+          select: { id: true },
+        });
+        if (!host) {
+          throw Object.assign(new Error("This game has no host to approve joins."), { status: 409 });
+        }
+        if (await isNameTakenInGame(fresh.id, name, { tx })) {
+          throw Object.assign(new Error("That name is already taken in this game."), { status: 409 });
+        }
+        return tx.joinRequest.create({
+          data: {
+            gameId: fresh.id,
+            playerName: name,
+            status: "PENDING",
+            playerToken: generatePlayerToken(),
+          },
+        });
+      });
 
-    const joinRequest = await prisma.joinRequest.create({
-      data: {
+      if (!joinRequest) {
+        return NextResponse.json(
+          { error: "No game found for that code, or the game has already ended." },
+          { status: 404 },
+        );
+      }
+
+      return NextResponse.json({
+        joinRequestId: joinRequest.id,
         gameId: activeGame.id,
-        playerName: name,
-        status: "PENDING",
-      },
-    });
-
-    return NextResponse.json({
-      joinRequestId: joinRequest.id,
-      gameId: activeGame.id,
-      message: "Waiting for host approval",
-    });
+        playerToken: joinRequest.playerToken,
+        message: "Waiting for host approval",
+      });
+    } catch (error) {
+      const status = (error as { status?: number }).status;
+      const message = error instanceof Error ? error.message : "Could not join";
+      if (status === 409) {
+        return NextResponse.json({ error: message }, { status: 409 });
+      }
+      return errorResponse(error);
+    }
   }
 
   return NextResponse.json(

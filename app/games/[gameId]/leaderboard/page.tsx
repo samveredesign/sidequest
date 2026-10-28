@@ -1,11 +1,13 @@
 "use client";
 
 import { GameHeader } from "@/components/GameHeader";
+import { HostJoinRequestModal } from "@/components/HostJoinRequestModal";
 import { QuestText } from "@/components/QuestText";
 import { formatFinishDuration } from "@/lib/finish-duration";
 import { rankTitleForPlayer } from "@/lib/leaderboard-ranks";
+import { sortLeaderboardPlayers } from "@/lib/leaderboard-order";
 import { canViewLeaderboard } from "@/lib/routes";
-import { readSession } from "@/lib/storage";
+import { authHeaders, readSession } from "@/lib/storage";
 import type { GameStateJson } from "@/lib/game-state-types";
 import { useGamePoll } from "@/hooks/useGamePoll";
 import Link from "next/link";
@@ -19,22 +21,22 @@ export default function LeaderboardPage() {
   const router = useRouter();
   const routeGameId = typeof params.gameId === "string" ? params.gameId : "";
 
-  const [session, setSession] = useState<{ gameId: string; playerId: string } | null>(null);
+  const [session, setSession] = useState<{ gameId: string; playerId: string; token: string } | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [expandedTeamGroup, setExpandedTeamGroup] = useState<number | null>(null);
   const [revealed, setRevealed] = useState<Record<string, QuestReveal[]>>({});
   const [revealErr, setRevealErr] = useState<string | null>(null);
 
   useEffect(() => {
-    const { gameId, playerId } = readSession();
-    if (!gameId || !playerId || gameId !== routeGameId) {
+    const { gameId, playerId, token } = readSession();
+    if (!gameId || !playerId || !token || gameId !== routeGameId) {
       router.replace("/");
       return;
     }
-    setSession({ gameId, playerId });
+    setSession({ gameId, playerId, token });
   }, [routeGameId, router]);
 
-  const { data, error, loading } = useGamePoll(session?.gameId ?? null, session?.playerId ?? null);
+  const { data, error, loading, refresh } = useGamePoll(session?.gameId ?? null, session?.token ?? null);
 
   useEffect(() => {
     if (!data || !session) return;
@@ -61,9 +63,9 @@ export default function LeaderboardPage() {
     setRevealErr(null);
     if (!revealed[targetId]) {
       try {
-        const res = await fetch(
-          `/api/games/${session.gameId}/players/${targetId}/quests?viewerId=${encodeURIComponent(session.playerId)}`,
-        );
+        const res = await fetch(`/api/games/${session.gameId}/players/${targetId}/quests`, {
+          headers: authHeaders(session.token),
+        });
         const j = (await res.json()) as { error?: string; quests?: QuestReveal[]; playerName?: string };
         if (!res.ok) {
           setRevealErr(j.error ?? "Could not load quests");
@@ -86,7 +88,7 @@ export default function LeaderboardPage() {
     );
   }
 
-  const { gameId, playerId } = session;
+  const { gameId, playerId, token } = session;
 
   if (loading && !data) {
     return (
@@ -109,10 +111,14 @@ export default function LeaderboardPage() {
 
   const state = data as GameStateJson;
   const board = state.leaderboardPlayers ?? state.players;
-  const sorted = [...board].sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
-    return a.name.localeCompare(b.name);
-  });
+  const sorted = sortLeaderboardPlayers(
+    state.game.mode,
+    state.game.status,
+    board.map((player) => ({
+      ...player,
+      completedQuests: player.completedQuests ?? 0,
+    })),
+  );
   const startedAt = state.game.startedAt;
   const teams = state.leaderboardTeams;
   const isTeamBoard =
@@ -123,11 +129,27 @@ export default function LeaderboardPage() {
       <GameHeader
         gameId={gameId}
         playerId={playerId}
+        token={token}
         codeWord1={state.game.codeWord1}
         codeWord2={state.game.codeWord2}
+        canEndGame={state.me?.isHost === true && state.game.status === "ACTIVE"}
       />
 
       <h1 className="text-xl font-normal text-zinc-900 dark:text-zinc-50">Leaderboard</h1>
+
+      {state.outcome?.winnerName ? (
+        <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950">
+          {state.outcome.winnerName} won — first to finish.
+        </p>
+      ) : null}
+      {state.outcome?.loserName ? (
+        <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-900">
+          {state.outcome.loserName} lost — least progress
+          {state.outcome.loserCompletedQuests != null
+            ? ` (${state.outcome.loserCompletedQuests} quest${state.outcome.loserCompletedQuests === 1 ? "" : "s"} completed).`
+            : "."}
+        </p>
+      ) : null}
 
       {state.game.mode === "LAST_FINISH_LOSES" && state.game.status === "ACTIVE" ? (
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
@@ -239,7 +261,19 @@ export default function LeaderboardPage() {
                       className="cursor-pointer border-b border-zinc-100 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900/40"
                       onClick={() => void toggleReveal(p.id)}
                     >
-                      <td className="p-3 font-medium text-zinc-900 dark:text-zinc-50">{p.name}</td>
+                      <td className="p-3 font-medium text-zinc-900 dark:text-zinc-50">
+                        {p.name}
+                        {p.id === state.outcome?.winnerId ? (
+                          <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">
+                            Winner
+                          </span>
+                        ) : null}
+                        {p.id === state.outcome?.loserId ? (
+                          <span className="ml-2 rounded bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-900">
+                            Lost
+                          </span>
+                        ) : null}
+                      </td>
                       <td className="p-3">{p.score}</td>
                       <td className="p-3 text-zinc-600 dark:text-zinc-400">
                         {formatFinishDuration(startedAt, p.finishedAt)}
@@ -292,6 +326,13 @@ export default function LeaderboardPage() {
           </tbody>
         </table>
       </div>
+      <HostJoinRequestModal
+        gameId={gameId}
+        token={token}
+        enabled={state.me?.isHost === true && state.game.status === "ACTIVE"}
+        requests={state.pendingJoinRequests ?? []}
+        onChanged={() => void refresh()}
+      />
       <p className="instruction-copy text-xs text-zinc-500">
         {isTeamBoard
           ? "Tap an alliance to expand, then tap a member to load their quests."

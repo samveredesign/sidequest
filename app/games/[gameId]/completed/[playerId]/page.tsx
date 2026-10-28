@@ -1,10 +1,11 @@
 "use client";
 
 import { GameHeader } from "@/components/GameHeader";
+import { HostJoinRequestModal } from "@/components/HostJoinRequestModal";
 import { QuestText } from "@/components/QuestText";
 import type { GameStateJson } from "@/lib/game-state-types";
 import { useGamePoll } from "@/hooks/useGamePoll";
-import { readSession } from "@/lib/storage";
+import { authHeaders, readSession } from "@/lib/storage";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -16,21 +17,21 @@ export default function ViewCompletedQuestsPage() {
   const routeGameId = typeof params.gameId === "string" ? params.gameId : "";
   const targetPlayerId = typeof params.playerId === "string" ? params.playerId : "";
 
-  const [session, setSession] = useState<{ gameId: string; playerId: string } | null>(null);
+  const [session, setSession] = useState<{ gameId: string; playerId: string; token: string } | null>(null);
   const [playerName, setPlayerName] = useState("");
   const [quests, setQuests] = useState<QuestRow[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    const { gameId, playerId } = readSession();
-    if (!gameId || !playerId || gameId !== routeGameId) {
+    const { gameId, playerId, token } = readSession();
+    if (!gameId || !playerId || !token || gameId !== routeGameId) {
       router.replace("/");
       return;
     }
-    setSession({ gameId, playerId });
+    setSession({ gameId, playerId, token });
   }, [routeGameId, router]);
 
-  const { data: gameData } = useGamePoll(session?.gameId ?? null, session?.playerId ?? null);
+  const { data: gameData, refresh } = useGamePoll(session?.gameId ?? null, session?.token ?? null);
   const gameState = gameData as GameStateJson | undefined;
 
   useEffect(() => {
@@ -40,9 +41,9 @@ export default function ViewCompletedQuestsPage() {
     setQuests(null);
     (async () => {
       try {
-        const res = await fetch(
-          `/api/games/${session.gameId}/players/${targetPlayerId}/quests?viewerId=${encodeURIComponent(session.playerId)}`,
-        );
+        const res = await fetch(`/api/games/${session.gameId}/players/${targetPlayerId}/quests`, {
+          headers: authHeaders(session.token),
+        });
         const j = (await res.json()) as {
           error?: string;
           playerName?: string;
@@ -64,6 +65,8 @@ export default function ViewCompletedQuestsPage() {
     };
   }, [session, targetPlayerId]);
 
+  const { gameId, playerId, token } = session ?? { gameId: "", playerId: "", token: "" };
+
   if (!session) {
     return (
       <div className="mx-auto flex min-h-full max-w-3xl flex-col px-4 py-8">
@@ -72,16 +75,25 @@ export default function ViewCompletedQuestsPage() {
     );
   }
 
-  const { gameId, playerId } = session;
-
   return (
     <div className="mx-auto flex min-h-full max-w-3xl flex-col gap-6 px-4 py-8">
       <GameHeader
         gameId={gameId}
         playerId={playerId}
+        token={token}
         codeWord1={gameState?.game.codeWord1 ?? ""}
         codeWord2={gameState?.game.codeWord2 ?? ""}
+        canEndGame={gameState?.me?.isHost === true && gameState.game.status === "ACTIVE"}
       />
+      {gameState ? (
+        <HostJoinRequestModal
+          gameId={gameId}
+          token={token}
+          enabled={gameState.me?.isHost === true && gameState.game.status === "ACTIVE"}
+          requests={gameState.pendingJoinRequests ?? []}
+          onChanged={() => void refresh()}
+        />
+      ) : null}
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"

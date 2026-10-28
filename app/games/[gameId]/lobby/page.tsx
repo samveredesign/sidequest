@@ -5,7 +5,7 @@ import { GameHeader } from "@/components/GameHeader";
 import { pathForGameSession } from "@/lib/routes";
 import { clearLobbyBootstrap, peekLobbyBootstrap } from "@/lib/lobby-bootstrap";
 import { markPlayBootstrap } from "@/lib/play-bootstrap";
-import { readSession } from "@/lib/storage";
+import { authHeaders, readSession } from "@/lib/storage";
 import type { GameStateJson } from "@/lib/game-state-types";
 import { useGamePoll } from "@/hooks/useGamePoll";
 import Link from "next/link";
@@ -18,18 +18,18 @@ export default function LobbyPage() {
   const pathname = usePathname();
   const routeGameId = typeof params.gameId === "string" ? params.gameId : "";
 
-  const [session, setSession] = useState<{ gameId: string; playerId: string } | null>(null);
+  const [session, setSession] = useState<{ gameId: string; playerId: string; token: string } | null>(null);
 
   useEffect(() => {
-    const { gameId, playerId } = readSession();
-    if (!gameId || !playerId || gameId !== routeGameId) {
+    const { gameId, playerId, token } = readSession();
+    if (!gameId || !playerId || !token || gameId !== routeGameId) {
       router.replace("/");
       return;
     }
-    setSession({ gameId, playerId });
+    setSession({ gameId, playerId, token });
   }, [routeGameId, router]);
 
-  const { data, error, loading } = useGamePoll(session?.gameId ?? null, session?.playerId ?? null);
+  const { data, error, loading } = useGamePoll(session?.gameId ?? null, session?.token ?? null);
 
   useEffect(() => {
     if (!data || !session) return;
@@ -58,7 +58,7 @@ export default function LobbyPage() {
     );
   }
 
-  const { gameId, playerId } = session;
+  const { gameId, playerId, token } = session;
 
   const bootstrapping =
     !data && (loading || peekLobbyBootstrap(gameId));
@@ -93,6 +93,7 @@ export default function LobbyPage() {
       <GameHeader
         gameId={gameId}
         playerId={playerId}
+        token={token}
         codeWord1={state.game.codeWord1}
         codeWord2={state.game.codeWord2}
         showCopyCode
@@ -115,7 +116,7 @@ export default function LobbyPage() {
       {state.me?.isHost ? (
         <StartButton
           gameId={gameId}
-          playerId={playerId}
+          token={token}
           activePlayerCount={state.players.length}
           gameMode={state.game.mode}
         />
@@ -128,12 +129,12 @@ export default function LobbyPage() {
 
 function StartButton({
   gameId,
-  playerId,
+  token,
   activePlayerCount,
   gameMode,
 }: {
   gameId: string;
-  playerId: string;
+  token: string;
   activePlayerCount: number;
   gameMode: string;
 }) {
@@ -149,8 +150,8 @@ function StartButton({
     try {
       const res = await fetch(`/api/games/${gameId}/start`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerId }),
+        headers: authHeaders(token, true),
+        body: "{}",
       });
       const j = (await res.json()) as { error?: string };
       if (!res.ok) {

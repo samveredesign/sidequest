@@ -49,10 +49,8 @@ export async function GET(_req: Request, ctx: Ctx) {
   const player = await prisma.player.findFirst({
     where: {
       gameId: reqFresh.gameId,
-      name: reqFresh.playerName,
-      status: { not: "LEFT" },
+      secretToken: reqFresh.playerToken,
     },
-    orderBy: { createdAt: "desc" },
   });
 
   if (!player) {

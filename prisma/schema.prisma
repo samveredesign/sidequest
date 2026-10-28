@@ -60,6 +60,8 @@ model JoinRequest {
   gameId     String
   playerName String
   status     JoinRequestStatus @default(PENDING)
+  /** Issued to the joining device only. Copied onto the Player row if the host accepts. */
+  playerToken String           @unique
   createdAt  DateTime          @default(now())
 
   game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
@@ -76,6 +78,10 @@ model Player {
   score      Int          @default(0)
   finishedAt DateTime?
   leftAt     DateTime?
+  /** Secret kept on the player's device. Required for private quests and actions. */
+  secretToken String       @unique
+  /** Updated while the player's page is open. Stale active players are treated as having left. */
+  lastSeenAt  DateTime     @default(now())
   /** Secret Alliance: players with the same group are allies (pairs; one trio if odd). */
   allianceGroup Int?
   createdAt  DateTime     @default(now())
@@ -108,6 +114,7 @@ model PlayerQuest {
   player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
   quest  Quest  @relation(fields: [questId], references: [id], onDelete: Cascade)
 
+  @@unique([playerId, questId])
   @@index([playerId])
   @@index([questId])
 }

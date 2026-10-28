@@ -1,3 +1,4 @@
+import { requirePlayer } from "@/lib/player-auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
@@ -9,12 +10,9 @@ type Ctx = {
 
 export async function GET(req: Request, ctx: Ctx) {
   const { gameId, otherPlayerId } = await ctx.params;
-  const url = new URL(req.url);
-  const viewerId = url.searchParams.get("viewerId");
-
-  if (!viewerId) {
-    return NextResponse.json({ error: "viewerId required" }, { status: 400 });
-  }
+  const auth = await requirePlayer(req, { gameId });
+  if ("response" in auth) return auth.response;
+  const viewer = auth.player;
 
   const game = await prisma.game.findUnique({
     where: { id: gameId },
@@ -25,14 +23,13 @@ export async function GET(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Game not found" }, { status: 404 });
   }
 
-  const viewer = game.players.find((p) => p.id === viewerId);
-  const target = game.players.find((p) => p.id === otherPlayerId);
-
-  if (!viewer || !target) {
+  const target = game.players.find((player) => player.id === otherPlayerId);
+  if (!target) {
     return NextResponse.json({ error: "Player not in game" }, { status: 404 });
   }
 
   const canReveal =
+    viewer.id === target.id ||
     game.status === "FINISHED" ||
     viewer.status === "FINISHED" ||
     viewer.status === "LEFT" ||
@@ -53,9 +50,9 @@ export async function GET(req: Request, ctx: Ctx) {
 
   return NextResponse.json({
     playerName: target.name,
-    quests: rows.map((r) => ({
-      text: r.quest.text,
-      status: r.status,
+    quests: rows.map((row) => ({
+      text: row.quest.text,
+      status: row.status,
     })),
   });
 }

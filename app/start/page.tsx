@@ -3,6 +3,7 @@
 import { FullscreenLoadingOverlay } from "@/components/FullscreenLoadingOverlay";
 import { InGameRedirect } from "@/components/InGameRedirect";
 import { DURATION_CHOICE_SECONDS, DURATION_LABELS } from "@/lib/duration-options";
+import { MAX_STARTING_QUESTS, MIN_STARTING_QUESTS } from "@/lib/game-rules";
 import { markLobbyBootstrap } from "@/lib/lobby-bootstrap";
 import { saveSession } from "@/lib/storage";
 import Link from "next/link";
@@ -24,6 +25,14 @@ export default function StartGamePage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (
+      !Number.isInteger(numQuests) ||
+      numQuests < MIN_STARTING_QUESTS ||
+      numQuests > MAX_STARTING_QUESTS
+    ) {
+      setError(`Number of quests must be ${MIN_STARTING_QUESTS}–${MAX_STARTING_QUESTS}.`);
+      return;
+    }
     setPending(true);
     let navigated = false;
     try {
@@ -39,7 +48,11 @@ export default function StartGamePage() {
         }),
       });
       const text = await res.text();
-      let data: { error?: string; game?: { id: string }; player?: { id: string } } = {};
+      let data: {
+        error?: string;
+        game?: { id: string };
+        player?: { id: string; token?: string };
+      } = {};
       try {
         data = text ? (JSON.parse(text) as typeof data) : {};
       } catch {
@@ -54,12 +67,14 @@ export default function StartGamePage() {
         setError(data.error ?? `Failed to create game (${res.status})`);
         return;
       }
-      if (data.game && data.player) {
+      if (data.game && data.player?.id && data.player.token) {
         markLobbyBootstrap(data.game.id);
-        saveSession(data.game.id, data.player.id);
+        saveSession(data.game.id, data.player.id, data.player.token);
         navigated = true;
         router.push(`/games/${data.game.id}/lobby`);
+        return;
       }
+      setError("Could not create a player session.");
     } catch {
       setError("Network error — check that the dev server is running.");
     } finally {
@@ -76,7 +91,7 @@ export default function StartGamePage() {
         <span>HOME</span>
       </Link>
       <h1 className="text-2xl font-normal text-zinc-900 dark:text-zinc-50">Start New Game</h1>
-      <form onSubmit={onSubmit} className="mt-8 flex w-full flex-col gap-4">
+      <form noValidate onSubmit={onSubmit} className="mt-8 flex w-full flex-col gap-4">
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium text-zinc-700 dark:text-zinc-300">Player name</span>
           <input
@@ -105,13 +120,14 @@ export default function StartGamePage() {
           <span className="font-medium text-zinc-700 dark:text-zinc-300">Number of quests</span>
           <input
             type="number"
-            min={1}
-            max={20}
+            min={MIN_STARTING_QUESTS}
+            max={MAX_STARTING_QUESTS}
             required
             value={numQuests}
             onChange={(e) => setNumQuests(Number(e.target.value))}
             className="rounded-md border border-zinc-300 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-900"
           />
+          <span className="text-xs text-zinc-500">Maximum of {MAX_STARTING_QUESTS} starting quests per player.</span>
         </label>
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium text-zinc-700 dark:text-zinc-300">Game mode</span>
