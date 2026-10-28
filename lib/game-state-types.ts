@@ -7,6 +7,7 @@ export type GameStateJson = {
     mode: string;
     durationSeconds: number;
     numberOfQuests: number;
+    maxFailsPerPlayer: number;
     startedAt: string | null;
     finishedAt: string | null;
     createdAt: string;
@@ -21,8 +22,9 @@ export type GameStateJson = {
     score: number;
     finishedAt: string | null;
     leftAt: string | null;
+    completedQuests: number;
   }[];
-  /** Subset for leaderboard: excludes early leavers; in LAST_FINISH_LOSES only submitted players. */
+  /** Subset for leaderboard: excludes early leavers; in LAST_FINISH_LOSES only submitted players until the game ends. */
   leaderboardPlayers: {
     id: string;
     name: string;
@@ -31,6 +33,7 @@ export type GameStateJson = {
     score: number;
     finishedAt: string | null;
     leftAt: string | null;
+    completedQuests: number;
   }[];
   me: {
     id: string;
@@ -40,6 +43,9 @@ export type GameStateJson = {
     score: number;
     finishedAt: string | null;
     leftAt: string | null;
+    completedQuests: number;
+    failsUsed: number;
+    failsRemaining: number;
   } | null;
   myQuests: {
     id: string;
@@ -73,4 +79,11 @@ export type GameStateJson = {
     playerName: string;
     createdAt: string;
   }[];
+  outcome: {
+    winnerId: string | null;
+    winnerName: string | null;
+    loserId: string | null;
+    loserName: string | null;
+    loserCompletedQuests: number | null;
+  } | null;
 };

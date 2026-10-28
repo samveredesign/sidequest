@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { saveSession } from "@/lib/storage";
+import { joinTokenStorageKey, saveSession } from "@/lib/storage";
 
 function PendingInner() {
   const router = useRouter();
@@ -57,8 +57,16 @@ function PendingInner() {
         }
 
         if (data.status === "ACCEPTED" && data.gameId && data.playerId) {
+          const token = sessionStorage.getItem(joinTokenStorageKey(requestId));
+          if (!token) {
+            setMessage("You were accepted, but this browser is missing your player session. Rejoin with the same name if you can.");
+            setShowHomeLink(true);
+            stop();
+            return;
+          }
           stop();
-          saveSession(data.gameId, data.playerId);
+          saveSession(data.gameId, data.playerId, token);
+          sessionStorage.removeItem(joinTokenStorageKey(requestId));
           router.replace(`/games/${data.gameId}/play`);
         }
       } catch {

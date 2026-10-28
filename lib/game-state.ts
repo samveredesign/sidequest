@@ -1,5 +1,10 @@
 import { expireGameIfTimeUp } from "@/lib/game-expiry";
 import {
+  pickFirstFinisher,
+  pickLeastProgressPlayer,
+  type ProgressPlayer,
+} from "@/lib/leaderboard-order";
+import {
   includeInLeaderboardList,
   includeInLobbyPlayerList,
 } from "@/lib/player-filters";
@@ -15,6 +20,20 @@ export type PublicPlayer = {
   score: number;
   finishedAt: string | null;
   leftAt: string | null;
+  completedQuests: number;
+};
+
+export type MePlayer = PublicPlayer & {
+  failsUsed: number;
+  failsRemaining: number;
+};
+
+export type GameOutcome = {
+  winnerId: string | null;
+  winnerName: string | null;
+  loserId: string | null;
+  loserName: string | null;
+  loserCompletedQuests: number | null;
 };
 
 export type QuestRow = {
@@ -88,6 +107,15 @@ export async function buildGameState(gameId: string, playerId: string | null) {
 
   if (!game) return null;
 
+  const completedGroups = await prisma.playerQuest.groupBy({
+    by: ["playerId"],
+    where: { player: { gameId }, status: "COMPLETED" },
+    _count: { _all: true },
+  });
+  const completedByPlayer = new Map(
+    completedGroups.map((row) => [row.playerId, row._count._all]),
+  );
+
   const lobbyPlayers = game.players.filter(includeInLobbyPlayerList);
   const leaderboardPlayersRaw = game.players.filter((p) =>
     includeInLeaderboardList(p, game),
@@ -101,13 +129,14 @@ export async function buildGameState(gameId: string, playerId: string | null) {
     score: p.score,
     finishedAt: p.finishedAt?.toISOString() ?? null,
     leftAt: p.leftAt?.toISOString() ?? null,
+    completedQuests: completedByPlayer.get(p.id) ?? 0,
   });
 
   const publicPlayers: PublicPlayer[] = lobbyPlayers.map(mapPublic);
   const publicLeaderboardPlayers: PublicPlayer[] =
     leaderboardPlayersRaw.map(mapPublic);
 
-  let me: PublicPlayer | null = null;
+  let me: MePlayer | null = null;
   let myQuests: QuestRow[] | null = null;
   let pendingJoinRequests: PendingJoinRequest[] = [];
   let alliance: {
@@ -119,6 +148,9 @@ export async function buildGameState(gameId: string, playerId: string | null) {
   if (playerId) {
     const p = game.players.find((x) => x.id === playerId);
     if (p) {
+      const failsUsed = await prisma.playerQuest.count({
+        where: { playerId: p.id, status: "FAILED" },
+      });
       me = {
         id: p.id,
         name: p.name,
@@ -127,6 +159,9 @@ export async function buildGameState(gameId: string, playerId: string | null) {
         score: p.score,
         finishedAt: p.finishedAt?.toISOString() ?? null,
         leftAt: p.leftAt?.toISOString() ?? null,
+        completedQuests: completedByPlayer.get(p.id) ?? 0,
+        failsUsed,
+        failsRemaining: Math.max(0, game.maxFailsPerPlayer - failsUsed),
       };
 
       if (
@@ -251,6 +286,35 @@ export async function buildGameState(gameId: string, playerId: string | null) {
     canSubmit = (await canAllianceSubmit(prisma, playerId)) && (myQuests?.length ?? 0) > 0;
   }
 
+  const progressRows: ProgressPlayer[] = publicLeaderboardPlayers.map((player) => ({
+    id: player.id,
+    name: player.name,
+    score: player.score,
+    finishedAt: player.finishedAt,
+    completedQuests: player.completedQuests,
+  }));
+
+  let outcome: GameOutcome | null = null;
+  if (game.status === "FINISHED" && game.mode === "FIRST_FINISH_WINS") {
+    const winner = pickFirstFinisher(progressRows);
+    outcome = {
+      winnerId: winner?.id ?? null,
+      winnerName: winner?.name ?? null,
+      loserId: null,
+      loserName: null,
+      loserCompletedQuests: null,
+    };
+  } else if (game.status === "FINISHED" && game.mode === "LAST_FINISH_LOSES") {
+    const loser = pickLeastProgressPlayer(progressRows);
+    outcome = {
+      winnerId: null,
+      winnerName: null,
+      loserId: loser?.id ?? null,
+      loserName: loser?.name ?? null,
+      loserCompletedQuests: loser?.completedQuests ?? null,
+    };
+  }
+
   const leaderboardTeams = buildLeaderboardTeams(game, leaderboardPlayersRaw);
 
   const endsAt =
@@ -269,6 +333,7 @@ export async function buildGameState(gameId: string, playerId: string | null) {
       mode: game.mode,
       durationSeconds: game.durationSeconds,
       numberOfQuests: game.numberOfQuests,
+      maxFailsPerPlayer: game.maxFailsPerPlayer,
       startedAt: game.startedAt?.toISOString() ?? null,
       finishedAt: game.finishedAt?.toISOString() ?? null,
       createdAt: game.createdAt.toISOString(),
@@ -284,5 +349,6 @@ export async function buildGameState(gameId: string, playerId: string | null) {
     activeQuestCount,
     canSubmit,
     pendingJoinRequests,
+    outcome,
   };
 }

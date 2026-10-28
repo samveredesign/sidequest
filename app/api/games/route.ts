@@ -1,6 +1,13 @@
 import { deleteGamesOlderThanSevenDays } from "@/lib/cleanup";
 import { generateGameCodeWords } from "@/lib/game-code";
 import { isAllowedDurationSeconds } from "@/lib/duration-options";
+import {
+  DEFAULT_FAILS_PER_PLAYER,
+  isAllowedFailLimit,
+  MAX_STARTING_QUESTS,
+  MIN_STARTING_QUESTS,
+} from "@/lib/game-rules";
+import { generatePlayerToken } from "@/lib/player-token";
 import { prisma } from "@/lib/prisma";
 import { GameMode } from "@prisma/client";
 import { NextResponse } from "next/server";
@@ -11,6 +18,7 @@ type Body = {
   playerName?: string;
   durationSeconds?: number;
   numberOfQuests?: number;
+  maxFailsPerPlayer?: number;
   mode?: GameMode;
   /** Secret Alliance: show partner names on the quest screen. */
   partnersKnown?: boolean;
@@ -27,6 +35,7 @@ export async function POST(req: Request) {
   const name = body.playerName?.trim();
   const durationSec = body.durationSeconds;
   const nQuests = body.numberOfQuests;
+  const maxFails = body.maxFailsPerPlayer ?? DEFAULT_FAILS_PER_PLAYER;
   const mode = body.mode;
 
   if (!name || name.length < 1) {
@@ -35,8 +44,22 @@ export async function POST(req: Request) {
   if (typeof durationSec !== "number" || !isAllowedDurationSeconds(durationSec)) {
     return NextResponse.json({ error: "Invalid game duration" }, { status: 400 });
   }
-  if (typeof nQuests !== "number" || nQuests < 1 || nQuests > 20) {
-    return NextResponse.json({ error: "Number of quests must be 1–20" }, { status: 400 });
+  if (
+    typeof nQuests !== "number" ||
+    !Number.isInteger(nQuests) ||
+    nQuests < MIN_STARTING_QUESTS ||
+    nQuests > MAX_STARTING_QUESTS
+  ) {
+    return NextResponse.json(
+      { error: `Number of quests per person must be ${MIN_STARTING_QUESTS}–${MAX_STARTING_QUESTS}` },
+      { status: 400 },
+    );
+  }
+  if (!isAllowedFailLimit(maxFails)) {
+    return NextResponse.json(
+      { error: "Maximum failed quests per player must be 0–10" },
+      { status: 400 },
+    );
   }
   if (
     mode !== "FIRST_FINISH_WINS" &&
@@ -63,18 +86,21 @@ export async function POST(req: Request) {
         codeWord2: word2,
         durationSeconds: durationSec,
         numberOfQuests: nQuests,
+        maxFailsPerPlayer: maxFails,
         mode,
         partnersKnown: false,
         status: "LOBBY",
       },
     });
 
+    const token = generatePlayerToken();
     const player = await prisma.player.create({
       data: {
         gameId: game.id,
         name,
         isHost: true,
         status: "ACTIVE",
+        secretToken: token,
       },
     });
 
@@ -86,7 +112,7 @@ export async function POST(req: Request) {
         status: game.status,
         mode: game.mode,
       },
-      player: { id: player.id, name: player.name, isHost: player.isHost },
+      player: { id: player.id, name: player.name, isHost: player.isHost, token },
     });
   } catch (e) {
     console.error("[POST /api/games]", e);

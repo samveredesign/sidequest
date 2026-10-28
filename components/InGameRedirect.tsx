@@ -15,17 +15,17 @@ export function InGameRedirect() {
   const [checking, setChecking] = useState(false);
 
   useEffect(() => {
-    const { gameId, playerId } = readSession();
-    if (!gameId || !playerId) return;
+    const { gameId, playerId, token } = readSession();
+    if (!gameId || !playerId || !token) return;
 
     setChecking(true);
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch(
-          `/api/games/${gameId}?playerId=${encodeURIComponent(playerId)}`,
-          { cache: "no-store" },
-        );
+        const res = await fetch(`/api/games/${gameId}`, {
+          cache: "no-store",
+          headers: { "x-player-token": token },
+        });
         if (!res.ok) {
           if (!cancelled) setChecking(false);
           return;

@@ -8,6 +8,7 @@ import type { NextConfig } from "next";
 const projectRoot = process.cwd();
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ["127.0.0.1"],
   turbopack: {
     root: projectRoot,
   },

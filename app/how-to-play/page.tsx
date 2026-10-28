@@ -17,7 +17,8 @@ export default function HowToPlayPage() {
           the host starts the game.
         </p>
         <p className="instruction-copy">
-          Each player receives a private set of secret quests. Complete them before the round ends.
+          Each player receives a private set of secret quests — up to 10 starting quests. Complete them before the
+          round ends.
         </p>
         <p className="instruction-copy">As you complete quests, you submit them in the app to increase your score.</p>
         <p className="instruction-copy">
@@ -45,6 +46,11 @@ export default function HowToPlayPage() {
             <span className="instruction-copy">Replace the quest with 2 new quests</span>
           </li>
         </ul>
+        <p className="instruction-copy">
+          The host chooses how many times each player may fail a quest in that game, from 0 to 10. The default is 5.
+          When you fail, the app tells you how many fails you have left (for example, “3 fails left”). Once you reach
+          the limit, Fail is turned off. If the host chooses 0, Fail is unavailable from the start.
+        </p>
         <p className="instruction-copy">You must complete all active quests to finish the game.</p>
       </section>
 

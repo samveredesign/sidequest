@@ -1,13 +1,14 @@
 "use client";
 
 import { ConfirmModal } from "@/components/ConfirmModal";
-import { clearSession } from "@/lib/storage";
+import { authHeaders, clearSession } from "@/lib/storage";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 type Props = {
   gameId: string;
   playerId: string;
+  token: string;
   codeWord1: string;
   codeWord2: string;
   showCopyCode?: boolean;
@@ -42,6 +43,7 @@ function HamburgerIcon({ open }: { open: boolean }) {
 export function GameHeader({
   gameId,
   playerId,
+  token,
   codeWord1,
   codeWord2,
   showCopyCode,
@@ -53,6 +55,9 @@ export function GameHeader({
   const [menuOpen, setMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [ending, setEnding] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
+  const [endError, setEndError] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const codeDisplay = `${codeWord1} ${codeWord2}`.toUpperCase();
@@ -79,25 +84,48 @@ export function GameHeader({
   }
 
   async function confirmLeave() {
-    await fetch(`/api/players/${playerId}/leave`, { method: "POST" });
-    clearSession();
-    setLeaveOpen(false);
-    setMenuOpen(false);
-    router.push("/");
+    setLeaving(true);
+    setLeaveError(null);
+    try {
+      const res = await fetch(`/api/players/${playerId}/leave`, {
+        method: "POST",
+        headers: authHeaders(token),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setLeaveError(data.error ?? "Could not leave the game");
+        return;
+      }
+      clearSession();
+      setLeaveOpen(false);
+      setMenuOpen(false);
+      router.push("/");
+    } catch {
+      setLeaveError("Network error — you are still in the game.");
+    } finally {
+      setLeaving(false);
+    }
   }
 
   async function confirmEndGame() {
+    setEnding(true);
+    setEndError(null);
     try {
-      setEnding(true);
       const res = await fetch(`/api/games/${gameId}/end`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hostPlayerId: playerId }),
+        headers: authHeaders(token, true),
+        body: "{}",
       });
-      if (!res.ok) return;
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setEndError(data.error ?? "Could not end the game");
+        return;
+      }
       setEndOpen(false);
       setMenuOpen(false);
       router.push(`/games/${gameId}/leaderboard`);
+    } catch {
+      setEndError("Network error — the game was not ended.");
     } finally {
       setEnding(false);
     }
@@ -175,8 +203,14 @@ export function GameHeader({
         open={leaveOpen}
         title="Leave Game?"
         message="Are you sure you want to leave this game?"
-        confirmLabel="Leave Game"
-        onCancel={() => setLeaveOpen(false)}
+        confirmLabel={leaving ? "Leaving…" : "Leave Game"}
+        error={leaveError}
+        busy={leaving}
+        onCancel={() => {
+          if (leaving) return;
+          setLeaveError(null);
+          setLeaveOpen(false);
+        }}
         onConfirm={() => void confirmLeave()}
       />
       <ConfirmModal
@@ -184,7 +218,13 @@ export function GameHeader({
         title="End Game Early?"
         message="Are you sure? This will end the game now and move everyone to the leaderboard."
         confirmLabel={ending ? "Ending…" : "End Game"}
-        onCancel={() => setEndOpen(false)}
+        error={endError}
+        busy={ending}
+        onCancel={() => {
+          if (ending) return;
+          setEndError(null);
+          setEndOpen(false);
+        }}
         onConfirm={() => void confirmEndGame()}
       />
     </>

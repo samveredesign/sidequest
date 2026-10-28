@@ -8,7 +8,9 @@ export function includeInLobbyPlayerList(p: Player): boolean {
 /**
  * Leaderboard table:
  * - Hide players who left before the game ended.
- * - LAST_FINISH_LOSES: only list players who submitted (have finishedAt).
+ * - LAST_FINISH_LOSES while the round is still going: only players who submitted.
+ * - LAST_FINISH_LOSES after the game ends: everyone still in the game, so the
+ *   player with the least progress is visible.
  */
 export function includeInLeaderboardList(p: Player, game: Game): boolean {
   if (p.status === "LEFT") {
@@ -17,7 +19,7 @@ export function includeInLeaderboardList(p: Player, game: Game): boolean {
     if (p.finishedAt != null) return true;
     return false;
   }
-  if (game.mode === "LAST_FINISH_LOSES") {
+  if (game.mode === "LAST_FINISH_LOSES" && game.status !== "FINISHED") {
     return p.finishedAt != null;
   }
   return true;
