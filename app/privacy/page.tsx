@@ -6,6 +6,17 @@ export const metadata: Metadata = {
   description: "What Side Quest collects, why, and how long it is kept.",
 };
 
+const OPERATOR_NAME = "Sam Vere Design";
+const CONTACT_EMAIL = "samveredesign@gmail.com";
+
+function ContactEmailLink() {
+  return (
+    <a href={`mailto:${CONTACT_EMAIL}`} className="underline">
+      {CONTACT_EMAIL}
+    </a>
+  );
+}
+
 export default function PrivacyPolicyPage() {
   return (
     <main className="mx-auto flex min-h-full w-full max-w-3xl flex-1 flex-col px-4 py-12">
@@ -29,8 +40,8 @@ export default function PrivacyPolicyPage() {
       <section className="mt-8 space-y-4 text-base text-zinc-800">
         <h2 className="text-xl text-zinc-900">Who we are</h2>
         <p className="instruction-copy">
-          Side Quest is run by [OPERATOR NAME]. If you have a privacy question, or you want a copy of your game data
-          or want it deleted, email [CONTACT EMAIL].
+          Side Quest is run by {OPERATOR_NAME}. If you have a privacy question, or you want a copy of your game data
+          or want it deleted, email <ContactEmailLink />.
         </p>
       </section>
 
@@ -146,7 +157,7 @@ export default function PrivacyPolicyPage() {
         <h2 className="text-xl text-zinc-900">Children</h2>
         <p className="instruction-copy">
           Side Quest is not directed at children under 13, and we do not knowingly collect their information. If you
-          are a parent or guardian and you think a child under 13 has played, email [CONTACT EMAIL] and we will
+          are a parent or guardian and you think a child under 13 has played, email <ContactEmailLink /> and we will
           delete that game data.
         </p>
       </section>
@@ -161,7 +172,7 @@ export default function PrivacyPolicyPage() {
           you can ask for a copy in a common format.
         </p>
         <p className="instruction-copy">
-          Email [CONTACT EMAIL] to make a request. There is no account, so please include the name you used, the game
+          Email <ContactEmailLink /> to make a request. There is no account, so please include the name you used, the game
           code if you still have it, and roughly when you played. That is how we find the right game. You can also
           remove the device secret yourself by leaving the game, or by clearing this site&apos;s data in your browser.
         </p>
@@ -178,8 +189,10 @@ export default function PrivacyPolicyPage() {
 
       <section className="mt-8 space-y-4 text-base text-zinc-800">
         <h2 className="text-xl text-zinc-900">Contact</h2>
-        <p className="instruction-copy">[OPERATOR NAME]</p>
-        <p className="instruction-copy">[CONTACT EMAIL]</p>
+        <p className="instruction-copy">{OPERATOR_NAME}</p>
+        <p className="instruction-copy">
+          <ContactEmailLink />
+        </p>
         <p className="instruction-copy">This page was last updated on 28 October 2026.</p>
       </section>
     </main>
