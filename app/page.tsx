@@ -50,13 +50,21 @@ export default function HomePage() {
               </Link>
             </div>
           </div>
-          <Link
-            href="/how-to-play"
-            className="inline-block bg-bottom bg-no-repeat pb-3 text-xl tracking-wide text-[#1e1e1e]"
-            style={{ backgroundImage: "url(/media/Underline.svg)", backgroundSize: "100% auto" }}
-          >
-            HOW TO PLAY
-          </Link>
+          <div className="flex flex-col items-center gap-4">
+            <Link
+              href="/how-to-play"
+              className="inline-block bg-bottom bg-no-repeat pb-3 text-xl tracking-wide text-[#1e1e1e]"
+              style={{ backgroundImage: "url(/media/Underline.svg)", backgroundSize: "100% auto" }}
+            >
+              HOW TO PLAY
+            </Link>
+            <Link
+              href="/privacy"
+              className="instruction-copy text-sm text-[#1e1e1e] underline decoration-[#5c5346] underline-offset-4 hover:decoration-[#1e1e1e]"
+            >
+              Privacy policy
+            </Link>
+          </div>
         </div>
       </div>
     </div>
