@@ -171,6 +171,20 @@ input[type="reset"] {
   border-color: #8b8b8b !important;
 }
 
+/* Privacy policy is taller than the parchment image. Tile it down this route only. */
+.privacy-page-bg {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100%;
+  background-color: var(--background);
+  background-image: url("/media/background.jpg");
+  background-repeat: repeat-y;
+  background-position: top center;
+  background-size: 100% auto;
+}
+
 /* Completed/failed states: keep existing colors, add rougher edge feel */
 :where(.border-green-600, .border-green-800, .border-red-500, .border-red-800) {
   border-width: 1px !important;

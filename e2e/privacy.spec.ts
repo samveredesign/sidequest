@@ -34,5 +34,25 @@ test("home links to a privacy policy that matches what the game stores", async (
   await expect(page.getByText("[CONTACT EMAIL]")).toHaveCount(0);
   await expect(page.getByText(/more than 7 days earlier/)).toBeVisible();
   await expect(page.getByRole("link", { name: "ico.org.uk" })).toHaveAttribute("href", "https://ico.org.uk");
-  await page.screenshot({ path: `${ARTIFACTS}/privacy_page.png`, fullPage: true });
+
+  const bodyRepeat = await page.evaluate(() => getComputedStyle(document.body).backgroundRepeat);
+  expect(bodyRepeat).toBe("no-repeat");
+
+  const bg = page.locator(".privacy-page-bg");
+  await expect(bg).toBeVisible();
+  const privacyBg = await bg.evaluate((el) => {
+    const style = getComputedStyle(el);
+    return {
+      repeat: style.backgroundRepeat,
+      size: style.backgroundSize,
+      image: style.backgroundImage,
+    };
+  });
+  expect(privacyBg.repeat).toBe("repeat-y");
+  expect(privacyBg.size).toContain("auto");
+  expect(privacyBg.image).toContain("background.jpg");
+
+  await page.screenshot({ path: `${ARTIFACTS}/privacy_page_mobile.png`, fullPage: true });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.screenshot({ path: `${ARTIFACTS}/privacy_page_desktop.png`, fullPage: true });
 });
